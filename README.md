@@ -1,42 +1,41 @@
-# InstaToon AI Lab — Phase 4
+# InstaToon AI Lab — Final
 
-웹툰 AI Lab과 완전히 분리된 독립 4컷 인스타툰 생성기입니다.
+Webtoon AI LAB과 완전히 분리된, 독립 4컷 인스타툰 생성 앱입니다.
 
-## 사용자 흐름
-1. 그림체 마스터 이미지 1장 업로드
-2. 1~4컷 장면/대사 입력
-3. `인스타툰 만들기`
-4. AI가 마스터 그림체를 참조해 컷별 이미지 생성
-5. 서버가 한글 말풍선을 후처리 합성
-6. 1080×1350 결과 미리보기 및 PNG 다운로드
-7. `같은 내용으로 다시 만들기`로 새 변형 생성
+## 핵심 기능
+- 그림체 기준 이미지 1장 업로드
+- 1컷~4컷 장면/대사 입력
+- OpenAI 이미지 생성으로 각 컷 새로 생성
+- 최종 4컷 이미지 안에 말풍선 + 한글 대사 자동 합성
+- 같은 내용으로 다시 만들기 / PNG 다운로드
 
-## Phase 4 핵심
-- 실제 AI 이미지 생성: OpenAI GPT Image API
-- 기본 모델: `gpt-image-2`
-- 마스터 이미지를 각 컷 생성의 이미지 레퍼런스로 사용
-- 컷 4개를 병렬 생성해 대기시간 단축
-- 이미지 안에서는 텍스트를 만들지 않고, 한글 대사는 앱에서 정확하게 후처리
-- 네 컷 전체 스토리 내용을 각 생성 프롬프트에 함께 전달해 연속성 강화
+## 입력 형식
+각 컷에 아래 형식으로 적으면 됩니다.
 
-## Vercel Environment Variables
-필수:
-
-```text
-OPENAI_API_KEY=...
+```txt
+아빠가 소파에 앉아 있고 하린이가 컵을 들고 온다.
+하린이: "아빠가!"
+아빠: "물 따라달라고?"
 ```
 
-선택:
+- 첫 줄(들): 장면 설명
+- `이름: 대사` 형식: 말풍선 자동 생성
+- `생각: ...` : 생각풍선
+- `내레이션: ...` : 네모 내레이션 박스처럼 처리
 
-```text
-OPENAI_IMAGE_MODEL=gpt-image-2
-OPENAI_IMAGE_QUALITY=medium
+## 환경변수
+Vercel Project Settings → Environment Variables
+
+- `OPENAI_API_KEY` (필수)
+- `OPENAI_IMAGE_MODEL` (선택, 기본 `gpt-image-2`)
+- `OPENAI_IMAGE_QUALITY` (선택, 기본 `medium`)
+
+## 실행
+```bash
+npm install
+npm run dev
 ```
 
-Vercel에서 키를 추가한 뒤 반드시 Redeploy 해야 서버 함수가 새 환경 변수를 읽습니다.
-
-## 주의
-- API 키는 브라우저 코드로 보내지 않습니다. `/api/generate` 서버 라우트에서만 사용합니다.
-- 키가 없으면 앱은 가짜 이미지를 생성하지 않고 설정 필요 메시지를 표시합니다.
-- 기존 Webtoon AI Lab 저장소/코드는 사용하거나 수정하지 않습니다.
-Phase 4 deploy retry
+## 배포
+- Root Directory: `./`
+- Framework Preset: Next.js

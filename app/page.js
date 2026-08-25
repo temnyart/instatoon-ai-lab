@@ -5,10 +5,10 @@ import './style.css';
 
 const emptyPanels = ['', '', '', ''];
 const examplePanels = [
-  '아침에 늦잠 자고 놀라서 벌떡 일어난다.\n대사: "헉, 늦었다!"',
-  '허둥지둥 옷을 입으며 뛰어나갈 준비를 한다.\n대사: "왜 알람을 못 들었지?"',
-  '엘리베이터를 기다리다가 문이 바로 닫혀버린다.\n대사: "잠깐만요!"',
-  '숨차게 도착했는데 오늘이 휴일이라는 걸 알게 된다.\n대사: "...오늘 쉬는 날이었네."',
+  '아빠가 소파에 앉아 있는데 하린이가 컵을 들고 온다.\n하린이: "아빠가!"\n아빠: "물 따라달라고?"',
+  '이번엔 신발을 들고 온다. 아빠는 아직도 감을 잡는 중이다.\n하린이: "아빠가!"\n아빠: "신발 신겨달라고?"',
+  '이번엔 장난감 상자를 들고 와서 또 외친다.\n하린이: "아빠가!"\n아빠: "이것도 아빠가?"',
+  '아빠가 장난으로 다가간다. 하린이는 바로 고개를 돌린다.\n아빠: "그럼 뽀뽀도 아빠가?"\n하린이: "엄마가!"',
 ];
 
 export default function Home() {
@@ -26,7 +26,7 @@ export default function Home() {
   const [lastActionLabel, setLastActionLabel] = useState('');
 
   useEffect(() => {
-    const saved = window.localStorage.getItem('instatoon_phase3_draft');
+    const saved = window.localStorage.getItem('instatoon_final_draft');
     if (!saved) return;
     try {
       const parsed = JSON.parse(saved);
@@ -37,7 +37,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem('instatoon_phase3_draft', JSON.stringify({ panels }));
+    window.localStorage.setItem('instatoon_final_draft', JSON.stringify({ panels }));
   }, [panels]);
 
   const completedCount = useMemo(() => panels.filter((item) => item.trim()).length, [panels]);
@@ -50,16 +50,16 @@ export default function Home() {
     setMasterName(file.name);
   };
 
-  const onExample = () => {
-    setPanels(examplePanels);
-  };
+  const onExample = () => setPanels(examplePanels);
 
   const generateToon = async ({ reroll = false } = {}) => {
     setError('');
+
     if (!masterFile) {
       setError('그림체 이미지를 먼저 올려주세요.');
       return;
     }
+
     if (completedCount < 4) {
       setError('4컷 내용을 모두 입력해주세요.');
       return;
@@ -67,7 +67,8 @@ export default function Home() {
 
     try {
       setStatus('loading');
-      setLastActionLabel(reroll ? '같은 내용으로 다시 만드는 중...' : '인스타툰 만드는 중...');
+      setLastActionLabel(reroll ? '같은 내용으로 새 버전을 만드는 중...' : '4컷 인스타툰을 만드는 중...');
+
       const formData = new FormData();
       formData.append('master', masterFile);
       formData.append('panels', JSON.stringify(panels));
@@ -87,7 +88,7 @@ export default function Home() {
       setPanelSummaries(data.panelSummaries || []);
       setGenerationCount(data.variant || (reroll ? generationCount + 1 : 1));
       setStatus('done');
-      setLastActionLabel(reroll ? '새 버전으로 다시 만들었어요.' : '생성이 완료됐습니다.');
+      setLastActionLabel(reroll ? '새 버전으로 다시 만들었어요.' : '말풍선까지 포함된 인스타툰이 완성됐어요.');
       resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
       setStatus('idle');
@@ -130,13 +131,13 @@ export default function Home() {
       <section className="hero">
         <div className="brand">InstaToon <span>AI Lab</span></div>
         <h1>그림체 하나 올리고,<br />4컷 내용만 적으면 끝.</h1>
-        <p>초간단 입력은 유지하면서, 말풍선·재생성·한글 정리를 더 안정화한 3단계 버전입니다.</p>
+        <p>장면·대사만 입력하면 4컷 그림과 말풍선을 한 번에 만들어주는 최종 버전입니다.</p>
       </section>
 
       <section className="workcard">
         <div className="sectionTitle">
           <b>1. 그림체 올리기</b>
-          <span>원하는 그림체 샘플 1장을 넣어주세요.</span>
+          <span>항상 기준으로 쓸 그림체 이미지를 1장 업로드하세요.</span>
         </div>
 
         <button className={`upload ${masterUrl ? 'hasImage' : ''}`} onClick={() => fileRef.current?.click()}>
@@ -166,12 +167,19 @@ export default function Home() {
 
         <div className="sectionTitle">
           <b>2. 4컷 내용 적기</b>
-          <span>장면과 대사를 한 칸에 같이 적으면 됩니다.</span>
+          <span>장면 설명 아래에 “이름: 대사” 형식으로 적으면 말풍선이 자동 생성됩니다.</span>
         </div>
 
         <div className="topActions">
           <button className="ghost" onClick={onExample}>예시 불러오기</button>
           <div className="miniStatus">입력 완료 <strong>{completedCount}/4</strong></div>
+        </div>
+
+        <div className="hintCard">
+          <b>입력 예시</b>
+          <p>아빠가 소파에 앉아 있고 하린이가 컵을 들고 온다.</p>
+          <p>하린이: "아빠가!"</p>
+          <p>아빠: "물 따라달라고?"</p>
         </div>
 
         <div className="panelGrid">
@@ -186,8 +194,8 @@ export default function Home() {
                   setPanels(next);
                 }}
                 placeholder={index === 0
-                  ? '예) 아침에 늦잠 자고 놀라서 일어난다.\n대사: “헉! 늦었다!”'
-                  : `${index + 1}컷의 장면과 대사를 적어주세요.`}
+                  ? '예) 아빠가 소파에 앉아 있고 하린이가 컵을 들고 온다.\n하린이: “아빠가!”\n아빠: “물 따라달라고?”'
+                  : `${index + 1}컷 장면 설명과 대사를 적어주세요.`}
               />
             </label>
           ))}
@@ -204,8 +212,8 @@ export default function Home() {
         <div className="sectionTitle center">
           <b>완성 미리보기</b>
           <span>
-            {status === 'idle' && '생성하면 여기에 결과가 표시됩니다.'}
-            {status === 'loading' && (lastActionLabel || '그림체와 4컷 내용을 조합하는 중입니다.')}
+            {status === 'idle' && '생성하면 여기에 말풍선까지 포함된 최종 이미지가 표시됩니다.'}
+            {status === 'loading' && (lastActionLabel || '그림과 말풍선을 정리하는 중입니다.')}
             {status === 'done' && lastActionLabel}
           </span>
         </div>
@@ -214,7 +222,7 @@ export default function Home() {
           <div className="loadingCard">
             <div className="spinner" />
             <b>4컷 인스타툰 생성 중</b>
-            <p>말풍선과 컷 구성을 다시 정리하고 있어요.</p>
+            <p>그림 4컷과 말풍선을 한 번에 정리하고 있어요.</p>
           </div>
         )}
 
@@ -229,15 +237,10 @@ export default function Home() {
               <img src={generatedImage} alt="생성된 4컷 인스타툰" className="resultImage" />
             </div>
 
-            <div className="summaryGrid">
-              {panelSummaries.map((item, index) => (
-                <div className="summaryCard" key={index}>
-                  <strong>{index + 1}컷</strong>
-                  <p>{item.scene}</p>
-                  {item.dialogue ? <small>대사: {item.dialogue}</small> : <small>대사 없음</small>}
-                  <em>{item.toneLabel}</em>
-                </div>
-              ))}
+            <div className="speechSummary">
+              <strong>자동 처리됨</strong>
+              <p>각 컷의 장면 설명, 말풍선, 대사가 최종 이미지 안에 자동으로 들어갑니다.</p>
+              {panelSummaries.length > 0 && <small>현재 생성된 컷 수: {panelSummaries.length}컷</small>}
             </div>
           </>
         )}
@@ -251,7 +254,7 @@ export default function Home() {
         </div>
       </section>
 
-      <footer>InstaToon AI Lab · Phase 3</footer>
+      <footer>InstaToon AI Lab · Final</footer>
     </main>
   );
 }
