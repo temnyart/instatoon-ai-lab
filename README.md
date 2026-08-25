@@ -39,3 +39,4 @@ Vercel에서 키를 추가한 뒤 반드시 Redeploy 해야 서버 함수가 새
 - API 키는 브라우저 코드로 보내지 않습니다. `/api/generate` 서버 라우트에서만 사용합니다.
 - 키가 없으면 앱은 가짜 이미지를 생성하지 않고 설정 필요 메시지를 표시합니다.
 - 기존 Webtoon AI Lab 저장소/코드는 사용하거나 수정하지 않습니다.
+Phase 4 deploy retry
