@@ -88,7 +88,7 @@ export default function Home() {
       setPanelSummaries(data.panelSummaries || []);
       setGenerationCount(data.variant || (reroll ? generationCount + 1 : 1));
       setStatus('done');
-      setLastActionLabel(reroll ? '새 버전으로 다시 만들었어요.' : '말풍선까지 포함된 인스타툰이 완성됐어요.');
+      setLastActionLabel(reroll ? '새 버전으로 다시 만들었어요.' : '말풍선이 그림 안에 포함된 인스타툰이 완성됐어요.');
       resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
       setStatus('idle');
@@ -131,7 +131,7 @@ export default function Home() {
       <section className="hero">
         <div className="brand">InstaToon <span>AI Lab</span></div>
         <h1>그림체 하나 올리고,<br />4컷 내용만 적으면 끝.</h1>
-        <p>장면·대사만 입력하면 4컷 그림과 말풍선을 한 번에 만들어주는 최종 버전입니다.</p>
+        <p>장면·대사만 입력하면 AI가 말풍선까지 그림 안에 포함해서 4컷 인스타툰을 완성합니다.</p>
       </section>
 
       <section className="workcard">
@@ -167,7 +167,7 @@ export default function Home() {
 
         <div className="sectionTitle">
           <b>2. 4컷 내용 적기</b>
-          <span>장면 설명 아래에 “이름: 대사” 형식으로 적으면 말풍선이 자동 생성됩니다.</span>
+          <span>장면 설명 아래에 “이름: 대사” 형식으로 적으면 AI가 그림 안에 말풍선까지 같이 그립니다.</span>
         </div>
 
         <div className="topActions">
@@ -212,8 +212,8 @@ export default function Home() {
         <div className="sectionTitle center">
           <b>완성 미리보기</b>
           <span>
-            {status === 'idle' && '생성하면 여기에 말풍선까지 포함된 최종 이미지가 표시됩니다.'}
-            {status === 'loading' && (lastActionLabel || '그림과 말풍선을 정리하는 중입니다.')}
+            {status === 'idle' && '생성하면 말풍선이 그림 자체에 포함된 최종 4컷 이미지가 표시됩니다.'}
+            {status === 'loading' && (lastActionLabel || '그림과 말풍선을 함께 생성하는 중입니다.')}
             {status === 'done' && lastActionLabel}
           </span>
         </div>
@@ -222,7 +222,7 @@ export default function Home() {
           <div className="loadingCard">
             <div className="spinner" />
             <b>4컷 인스타툰 생성 중</b>
-            <p>그림 4컷과 말풍선을 한 번에 정리하고 있어요.</p>
+            <p>그림 4컷을 생성하면서 말풍선과 대사도 함께 그리고 있어요.</p>
           </div>
         )}
 
@@ -238,8 +238,8 @@ export default function Home() {
             </div>
 
             <div className="speechSummary">
-              <strong>자동 처리됨</strong>
-              <p>각 컷의 장면 설명, 말풍선, 대사가 최종 이미지 안에 자동으로 들어갑니다.</p>
+              <strong>완성형 생성</strong>
+              <p>각 컷은 그림, 말풍선, 한글 대사까지 한 장의 만화 컷으로 함께 생성됩니다.</p>
               {panelSummaries.length > 0 && <small>현재 생성된 컷 수: {panelSummaries.length}컷</small>}
             </div>
           </>

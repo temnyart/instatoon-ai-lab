@@ -28,11 +28,9 @@ export async function POST(request) {
     if (!master || typeof master === 'string') {
       return NextResponse.json({ error: '그림체 이미지가 필요합니다.' }, { status: 400 });
     }
-
     if (!master.type?.startsWith('image/')) {
       return NextResponse.json({ error: 'JPG, PNG, WEBP 이미지를 올려주세요.' }, { status: 400 });
     }
-
     if (master.size > 12 * 1024 * 1024) {
       return NextResponse.json({ error: '그림체 이미지는 12MB 이하로 올려주세요.' }, { status: 400 });
     }
@@ -45,8 +43,8 @@ export async function POST(request) {
     const panelSummaries = panels.map((panel, index) => parsePanelText(panel, index));
     const masterBytes = Buffer.from(await master.arrayBuffer());
     const model = process.env.OPENAI_IMAGE_MODEL || DEFAULT_MODEL;
-
     const storyContinuity = buildStoryContinuity(panelSummaries);
+
     const generatedPanels = await Promise.all(
       panelSummaries.map((summary, index) =>
         generatePanelWithOpenAI({
@@ -63,14 +61,14 @@ export async function POST(request) {
       ),
     );
 
-    const imageDataUrl = buildFinalSheet(generatedPanels, panelSummaries, variant);
+    const imageDataUrl = buildFinalSheet(generatedPanels, variant);
 
     return NextResponse.json({
       imageDataUrl,
       panelSummaries,
       variant,
       model,
-      mode: 'instatoon-final',
+      mode: 'instatoon-bubbles-inside-image',
     });
   } catch (error) {
     console.error('[InstaToon generate]', error);
@@ -123,24 +121,32 @@ async function generatePanelWithOpenAI({
 }
 
 function buildPanelPrompt({ summary, panelNumber, storyContinuity, variant }) {
-  const dialogueMeaning = summary.dialogues.length
-    ? summary.dialogues.map((item) => `${item.speaker || '인물'} says: ${item.text}`).join(' / ')
-    : 'No spoken dialogue';
+  const exactDialogueBlock = summary.dialogues.length
+    ? summary.dialogues
+        .map((item, idx) => {
+          const kind = item.bubbleType === 'thought' ? '생각풍선' : item.bubbleType === 'caption' ? '내레이션 박스' : '말풍선';
+          const speaker = item.speaker ? `${item.speaker}` : '인물';
+          return `${idx + 1}. ${kind} / 화자: ${speaker} / 텍스트: ${item.text}`;
+        })
+        .join('\n')
+    : '대사 없음';
 
   return [
-    'Create ONE finished Instagram 4-cut comic panel image.',
-    'The uploaded image is the MASTER visual reference. Match its illustration style closely: line quality, line wobble/hand-drawn looseness, face construction, proportions, color mood, texture, and simplification level.',
-    'This is a minimal character comic. Keep the design simple, clean, charming, and highly readable.',
-    'Do NOT copy the master composition. Create a new scene for the requested story moment.',
-    'IMPORTANT: Draw image art only. Do not render text, Korean letters, captions, speech balloons, panel numbers, borders, logos, UI, or typography. The app adds all Korean dialogue afterward.',
-    'Leave enough empty space near the top area and one side of the panel so speech balloons can be overlaid later without covering faces.',
-    'Keep recurring characters consistent across the four panels. If multiple family members appear, preserve their hair, height relationship, and clothing logic across panels.',
-    `This is panel ${panelNumber} of a 4-panel story. Regeneration variant: ${variant}.`,
-    `Whole story continuity: ${storyContinuity}`,
-    `THIS PANEL scene: ${summary.scene}`,
-    `Emotion / acting tone: ${summary.toneLabel}`,
-    `Dialogue meaning for this panel (do NOT draw words): ${dialogueMeaning}`,
-    'Use a square comic-panel composition that reads clearly at Instagram size.',
+    '완성된 한국어 인스타툰 1컷을 그려라.',
+    '업로드된 이미지는 그림체 마스터다. 선의 삐뚤삐뚤한 손그림 느낌, 단순한 캐릭터 비례, 미니멀하고 귀여운 인스타툰 감성, 은은한 색감, 손으로 그린 듯한 자연스러운 흔들림을 최대한 가깝게 따라라.',
+    '중요: 이번에는 말풍선, 생각풍선, 내레이션 박스를 그림 안에 자연스럽게 포함해서 완성된 만화 컷처럼 만들어라.',
+    '중요: 아래에 제공된 한국어 대사를 정확히 그대로 그림 속 말풍선/박스 안에 넣어라. 임의로 바꾸거나 요약하지 말고, 가능한 한 정확한 한글로 써라.',
+    '중요: 말풍선은 캐릭터 입이나 시선과 자연스럽게 연결되어야 하고, 후처리 오버레이처럼 보이면 안 된다. 그림의 일부처럼 자연스럽게 통합해라.',
+    '중요: 패널 번호, 앱 UI, 워터마크, 영어 텍스트, 불필요한 장식은 넣지 마라. 오직 장면과 말풍선이 포함된 완성된 만화 컷만 만들어라.',
+    '장면은 하나의 정사각형 만화 컷으로 만들고, 인물과 말풍선이 답답하지 않게 잘 읽히도록 구성해라.',
+    '가족/등장인물은 4컷 전체에서 같은 사람처럼 유지해라. 머리모양, 안경 유무, 체형, 옷 분위기를 일관되게 맞춰라.',
+    `이 컷은 전체 4컷 중 ${panelNumber}컷이다. 재생성 버전 번호는 ${variant}다.`,
+    `전체 스토리 흐름: ${storyContinuity}`,
+    `현재 컷 장면 설명: ${summary.scene}`,
+    `현재 컷 감정 톤: ${summary.toneLabel}`,
+    '현재 컷에 꼭 들어가야 할 한국어 대사/말풍선 목록:',
+    exactDialogueBlock,
+    '말풍선 개수는 위 목록에 맞춰라. 대사가 없으면 말풍선 없이 장면만 그려라.',
   ].join('\n');
 }
 
@@ -150,7 +156,7 @@ function buildStoryContinuity(summaries) {
       const dialogue = item.dialogues.length
         ? item.dialogues.map((d) => `${d.speaker || '인물'}: ${d.text}`).join(' / ')
         : '대사 없음';
-      return `Panel ${index + 1}: scene=${item.scene}; dialogue=${dialogue}`;
+      return `${index + 1}컷 장면=${item.scene}; 대사=${dialogue}`;
     })
     .join(' | ');
 }
@@ -158,7 +164,6 @@ function buildStoryContinuity(summaries) {
 function parsePanelText(text = '', index = 0) {
   const normalized = String(text).trim();
   const lines = normalized.split(/\n+/).map((item) => item.trim()).filter(Boolean);
-
   const sceneLines = [];
   const dialogues = [];
 
@@ -209,7 +214,6 @@ function parsePanelText(text = '', index = 0) {
     index,
     scene,
     dialogues,
-    dialogue: dialogues.map((item) => item.text).join(' '),
     tone: tone.key,
     toneLabel: tone.label,
   };
@@ -232,8 +236,8 @@ function detectBubbleType(label = '') {
 function cleanDialogue(value = '') {
   return String(value)
     .trim()
-    .replace(/^(["'“‘])+/u, '')
-    .replace(/(["'”’])+$/u, '')
+    .replace(/^(?:["'“‘])+/, '')
+    .replace(/(?:["'”’])+$/, '')
     .trim();
 }
 
@@ -247,12 +251,12 @@ function detectTone(text = '') {
   return { key: 'calm', label: '일상 / 차분함' };
 }
 
-function buildFinalSheet(panelImages, summaries, variant) {
+function buildFinalSheet(panelImages, variant) {
   const width = 1080;
   const height = 1350;
-  const margin = 28;
-  const gap = 16;
-  const headerHeight = 88;
+  const margin = 26;
+  const gap = 18;
+  const headerHeight = 82;
   const panelWidth = (width - margin * 2 - gap) / 2;
   const panelHeight = (height - headerHeight - margin * 2 - gap) / 2;
   const startY = headerHeight + margin;
@@ -264,22 +268,21 @@ function buildFinalSheet(panelImages, summaries, variant) {
     { x: margin + panelWidth + gap, y: startY + panelHeight + gap },
   ];
 
-  const panels = summaries
-    .map((summary, index) => renderFinalPanel({
-      index,
-      summary,
-      imageDataUrl: panelImages[index],
+  const panels = panelImages
+    .map((imageDataUrl, index) => renderPanelImage({
       x: positions[index].x,
       y: positions[index].y,
       width: panelWidth,
       height: panelHeight,
+      imageDataUrl,
+      index,
     }))
     .join('');
 
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-      <rect width="${width}" height="${height}" fill="#ffffff"/>
-      <text x="${margin}" y="45" font-family="Arial, Noto Sans KR, sans-serif" font-size="28" font-weight="800" fill="#161616">InstaToon AI Lab</text>
+      <rect width="${width}" height="${height}" fill="#fdfcf8"/>
+      <text x="${margin}" y="44" font-family="Arial, Noto Sans KR, sans-serif" font-size="28" font-weight="800" fill="#171717">InstaToon AI Lab</text>
       <text x="${width - margin}" y="44" text-anchor="end" font-family="Arial, Noto Sans KR, sans-serif" font-size="15" font-weight="700" fill="#777">4CUT · V${variant}</text>
       ${panels}
     </svg>`;
@@ -287,126 +290,20 @@ function buildFinalSheet(panelImages, summaries, variant) {
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
 }
 
-function renderFinalPanel({ index, summary, imageDataUrl, x, y, width, height }) {
-  const clipId = `panel-clip-${index}`;
-  const bubbles = renderDialogueSet({ x, y, width, height, dialogues: summary.dialogues, panelIndex: index });
-
+function renderPanelImage({ x, y, width, height, imageDataUrl, index }) {
+  const clipId = `clip-${index}`;
   return `
     <g>
       <defs>
-        <clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${width}" height="${height}" rx="16"/></clipPath>
+        <clipPath id="${clipId}">
+          <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="18"/>
+        </clipPath>
       </defs>
-      <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="16" fill="#f2f2f2" stroke="#151515" stroke-width="3"/>
+      <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="18" fill="#ffffff" stroke="#171717" stroke-width="3"/>
       <image href="${imageDataUrl}" x="${x}" y="${y}" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})"/>
-      <circle cx="${x + 25}" cy="${y + 25}" r="17" fill="#111"/>
-      <text x="${x + 25}" y="${y + 31}" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="800" fill="#fff">${index + 1}</text>
-      ${bubbles}
+      <circle cx="${x + 24}" cy="${y + 24}" r="16" fill="#111111"/>
+      <text x="${x + 24}" y="${y + 30}" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="800" fill="#ffffff">${index + 1}</text>
     </g>`;
-}
-
-function renderDialogueSet({ x, y, width, height, dialogues, panelIndex }) {
-  if (!Array.isArray(dialogues) || !dialogues.length) return '';
-
-  const maxBubbles = Math.min(dialogues.length, 3);
-  const bubbleWidth = Math.min(width - 42, 205);
-  const slots = [
-    { x: x + 18, y: y + 20, align: 'left', tail: 'left' },
-    { x: x + width - bubbleWidth - 18, y: y + 20, align: 'right', tail: 'right' },
-    { x: x + (width - bubbleWidth) / 2, y: y + height - 128, align: 'center', tail: panelIndex % 2 === 0 ? 'left' : 'right' },
-  ];
-
-  return dialogues.slice(0, maxBubbles).map((item, idx) => {
-    const slot = slots[idx] || slots[slots.length - 1];
-    return renderBubble({
-      x: slot.x,
-      y: slot.y,
-      width: bubbleWidth,
-      text: item.text,
-      bubbleType: item.bubbleType,
-      speaker: item.speaker,
-      align: slot.align,
-      tail: slot.tail,
-    });
-  }).join('');
-}
-
-function renderBubble({ x, y, width, text, bubbleType = 'speech', speaker = '', align = 'center', tail = 'left' }) {
-  const lines = wrapKoreanText(text, 10, 3);
-  const speakerLabel = shouldShowSpeaker(speaker) ? `${speaker}` : '';
-  const speakerLines = speakerLabel ? [speakerLabel] : [];
-  const allLines = [...speakerLines, ...lines];
-  const lineHeight = 22;
-  const bubbleHeight = 34 + allLines.length * lineHeight;
-  const radius = bubbleType === 'caption' ? 16 : Math.min(42, bubbleHeight / 2);
-  const textAnchor = align === 'left' ? 'start' : align === 'right' ? 'end' : 'middle';
-  const textX = align === 'left' ? x + 18 : align === 'right' ? x + width - 18 : x + width / 2;
-
-  const content = allLines.map((line, index) => {
-    const isSpeaker = speakerLabel && index === 0;
-    return `<tspan x="${textX}" dy="${index === 0 ? 0 : lineHeight}" font-weight="${isSpeaker ? '800' : '700'}">${escapeXml(line)}</tspan>`;
-  }).join('');
-
-  const tailSvg = bubbleType === 'caption'
-    ? ''
-    : tail === 'right'
-      ? `<path d="M ${x + width * 0.72} ${y + bubbleHeight - 4} L ${x + width * 0.84} ${y + bubbleHeight + 20} L ${x + width * 0.66} ${y + bubbleHeight - 2} Z" fill="#fff" stroke="#111" stroke-width="3" stroke-linejoin="round"/>`
-      : `<path d="M ${x + width * 0.28} ${y + bubbleHeight - 4} L ${x + width * 0.16} ${y + bubbleHeight + 20} L ${x + width * 0.34} ${y + bubbleHeight - 2} Z" fill="#fff" stroke="#111" stroke-width="3" stroke-linejoin="round"/>`;
-
-  if (bubbleType === 'thought') {
-    return `
-      <g>
-        <ellipse cx="${x + width / 2}" cy="${y + bubbleHeight / 2}" rx="${width / 2}" ry="${bubbleHeight / 2}" fill="#fff" stroke="#111" stroke-width="3"/>
-        <circle cx="${tail === 'right' ? x + width * 0.8 : x + width * 0.2}" cy="${y + bubbleHeight + 12}" r="7" fill="#fff" stroke="#111" stroke-width="2"/>
-        <circle cx="${tail === 'right' ? x + width * 0.87 : x + width * 0.13}" cy="${y + bubbleHeight + 26}" r="4.5" fill="#fff" stroke="#111" stroke-width="2"/>
-        <text x="${textX}" y="${y + 28}" text-anchor="${textAnchor}" font-family="Arial, Noto Sans KR, sans-serif" font-size="18" fill="#111">${content}</text>
-      </g>`;
-  }
-
-  return `
-    <g>
-      ${tailSvg}
-      <rect x="${x}" y="${y}" width="${width}" height="${bubbleHeight}" rx="${radius}" fill="#fff" stroke="#111" stroke-width="3"/>
-      <text x="${textX}" y="${y + 28}" text-anchor="${textAnchor}" font-family="Arial, Noto Sans KR, sans-serif" font-size="18" fill="#111">${content}</text>
-    </g>`;
-}
-
-function shouldShowSpeaker(speaker = '') {
-  if (!speaker) return false;
-  return !/^(대사|말|한마디|내레이션|생각)$/i.test(String(speaker).trim());
-}
-
-function wrapKoreanText(text, maxChars = 10, maxLines = 3) {
-  const normalized = String(text || '').replace(/\s+/g, ' ').trim();
-  if (!normalized) return [''];
-
-  const lines = [];
-  let current = '';
-  for (const char of normalized) {
-    if ((current + char).length <= maxChars) {
-      current += char;
-      continue;
-    }
-    lines.push(current.trim());
-    current = char;
-    if (lines.length >= maxLines - 1) break;
-  }
-  if (current && lines.length < maxLines) lines.push(current.trim());
-
-  if (normalized.length > maxChars * maxLines && lines.length) {
-    const lastIndex = lines.length - 1;
-    lines[lastIndex] = `${lines[lastIndex].slice(0, Math.max(1, maxChars - 1)).trim()}…`;
-  }
-
-  return lines;
-}
-
-function escapeXml(value = '') {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
 }
 
 function normalizeError(error) {
